@@ -17,6 +17,7 @@ const int HeadPreparedPosition = 0;
 
 const float LEDFadeTimeDuringFill = 8; // 8 * 255 = 2040, just over 2 seconds
 
+//                       Blue, Green, Red
 const int StateLEDsOut[] = { 3, 5, 6 };
 
 enum RobotState { Analyzing, OK, Error };
