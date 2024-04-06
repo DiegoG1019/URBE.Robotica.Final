@@ -12,8 +12,8 @@ const int USSignalOut = 7;
 const int USEchoIn = 8;
 const int OIRSignalIn = 9;
 
-const int HeadIDLEPosition = 0;
-const int HeadPreparedPosition = 0;
+const int HeadIDLEPosition = 180;
+const int HeadPreparedPosition = 90;
 
 const float LEDFadeTimeDuringFill = 8; // 8 * 255 = 2040, just over 2 seconds
 
@@ -27,7 +27,7 @@ Servo Base;
 Servo Head;
 
 int CheckObstacle() {
-  return digitalRead(OIRSignalIn);
+  return digitalRead(OIRSignalIn) == LOW;
 }
 
 void MoveHeadToGlass(Glass* glass) {
@@ -97,20 +97,24 @@ void SetAllLEDsTo(int mode) {
 }
 
 float ScanWaterLevel() {
-  // ((speed of sound in the air)*time)/2
-  return 0;
+  Serial.print(" [Scan] ");
+
+  digitalWrite(USSignalOut, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(USSignalOut, LOW);
+
+  return pulseIn(USEchoIn, HIGH) / 59;
 }
 
 void PourWater() {
+  Serial.print(" [Pour] ");
   digitalWrite(PumpSignalOut, HIGH);
   FadeLEDTo(StateLEDsOut[RobotState::OK], LOW, LEDFadeTimeDuringFill / 2);
   FadeLEDTo(StateLEDsOut[RobotState::OK], HIGH, LEDFadeTimeDuringFill / 2);
   digitalWrite(PumpSignalOut, LOW);
-}
 
 
-void DebugWrite(const char* dat, RobotState state = 0) {
-  Serial.println(dat);
+void SetState(RobotState state = 0) {
   if (state != CurrentState)
   {
     digitalWrite(StateLEDsOut[CurrentState], LOW);
@@ -164,21 +168,40 @@ int main(void)
   pinMode(USEchoIn, INPUT);
   pinMode(OIRSignalIn, INPUT);
 
+  digitalWrite(USSignalOut, LOW);
+  digitalWrite(PumpSignalOut, LOW);
+  Base.write(180);
+  Head.write(HeadActivePosition);
+
   FadeLEDsTo(LOW, 2);
   FadeLEDsTo(HIGH, 2);
   FadeLEDsTo(LOW, 10);
-  
+
+  delay(1000);
+
+  Base.write(0);
+  Head.write(HeadIDLEPosition);
+
+  delay(1000);
+
   for (;;) {
-    
-    DebugWrite("Scanning for glasses", RobotState::Analyzing);
+    Serial.println("Scanning for glasses");
+    SetState(RobotState::Analyzing);
     int foundGlasses = Glass::DetectGlasses(Base, &CheckObstacle);
     if(foundGlasses > 0)
     {
       Glass* glass;
-      DebugWrite("Found glasses to fill", RobotState::OK);
+      SetState(RobotState::OK);
+      Serial.print("Found ");
+      Serial.print(foundGlasses);
+      Serial.println(" glasses to fill");
       for(int i = 0; i < foundGlasses; i++){
+        Serial.print("Acting on glass #");
+        Serial.print(i);
         Glass::Get(i, glass);
+        Serial.print(" [Get] ");
         MoveHeadToGlass(glass);
+        Serial.print(" [Move] ");
         while (ScanWaterLevel() < 0.9)
           PourWater();
       }
